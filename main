@@ -1,0 +1,224 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<sys/types.h>
+#include<sys/dir.h>
+#include<dirent.h>
+#include<fcntl.h>
+#include<unistd.h>
+#include<string.h>
+#include <sys/stat.h>
+#include <errno.h>
+
+int rm(char* filename);
+int mv(char* from);
+void mkfile();
+int cpfile(char* fileName);
+void searchInDirectory(char* dirname, char* fileName);
+char searchedFileList[10][255];//찾아낸 파일들
+char searchedDirList[10][255];//찾아낸 파일들
+int file_list_print(char* dirpath);
+int selectmenu();
+int idx = 0;
+static int dir_cnt = 0;
+static int file_cnt = 0;
+int main() {
+
+
+   int num;
+   while (1) {
+      idx = 0;
+      num = 0;
+      char fileName[255];
+      int dirNum;
+      int fileNum;
+      int workNum;
+      printf("Name of File you want to find : ");
+      scanf("%s", fileName);
+      printf("Where?[1 : home directory / 2 : current directory] : ");
+      scanf("%d", &dirNum);
+
+
+
+      if (dirNum == 1) {
+
+         searchInDirectory("/home", fileName);
+      }
+      else {
+         searchInDirectory(".", fileName);
+      }
+      printf("%ld\n", sizeof(searchedFileList));
+
+      printf("List\n");
+      for (int i = 0; i < idx; i++)
+      {
+         printf("[%d] %s\n", i + 1, searchedFileList[i]);
+      }
+
+      printf("Select Index? ex) 1  : ");
+      scanf("%d", &fileNum);
+      strcpy(fileName, searchedFileList[fileNum - 1]);
+      opendir(searchedDirList[fileNum - 1]);
+      chdir(searchedDirList[fileNum - 1]);
+      printf("Work? [1 - Move File / 2 - Delete File / 3 - Copy File / 4 - Make New File / 5 - Information of items In this Directory /0 - Exit] : ");
+      scanf("%d", &workNum);
+      switch (workNum) {
+      case 1:
+         mv(fileName);
+         break;
+      case 2:
+         rm(fileName);
+         break;
+      case 3:
+         cpfile(searchedFileList[fileNum - 1]);
+         break;
+      case 4:
+         mkfile();
+         break;
+      case 5:
+         file_list_print(searchedDirList[fileNum - 1]);
+         break;
+      }
+
+
+
+      num = selectmenu();
+      if (num == 1) { // go to HOME DIR
+         chdir("/home");
+         continue;
+      }
+      else if (num == 2) { // stay at CURRENT DIR
+         continue;
+      }
+      else if (num == 3) { // program end
+         break;
+      }
+   }
+   printf("\n\n ※ 프로그램을 종료합니다.\n");
+   return 0;
+}
+
+
+void searchInDirectory(char* dirname, char* fileName) {
+
+
+   DIR* dir;
+   struct dirent* dirp;
+   dir = opendir(dirname);//폴더 열어서
+   chdir(dirname);//그 폴더로 이동
+   while ((dirp = readdir(dir)) != NULL) {//폴더 내 모든 파일과 폴더를 읽어온다
+
+      if (dirp->d_type == 4) {
+         if (strcmp(dirp->d_name, ".") == 0 || strcmp(dirp->d_name, "..") == 0) {//폴더일 경우
+            continue;
+         }
+
+         searchInDirectory(dirp->d_name, fileName);//그 폴더에서 재귀 탐색
+      }
+      else {//파일인 경우
+         if (strcmp(dirp->d_name, fileName) == 0) {//찾고자 하는 파일과 비교
+            getcwd(searchedDirList[idx], 255);
+            realpath(dirp->d_name, searchedFileList[idx++]);
+
+         }
+      }
+   }
+   chdir("..");//탐색 종료후 상위폴더로 이동
+   closedir(dir);
+}
+int rm(char* filename)
+{
+   unlink(filename);
+   return 0;
+}
+int mv(char* from)
+{
+   char to[255];
+   printf("Name of File, Directory to change : ");
+   scanf("%s", to);
+
+   int fd1, fd2;
+   int read_size, write_size;
+   char buffer[100];
+   fd1 = open(from, O_RDONLY);
+   fd2 = open(to, O_RDWR | O_CREAT | O_EXCL, 0664);
+
+   read_size = read(fd1, buffer, 100);
+   write_size = write(fd2, buffer, read_size);
+   while (read_size == 100)
+   {
+      read_size = read(fd1, buffer, 100);
+      write_size = write(fd2, buffer, read_size);
+   }
+
+   unlink(from);
+   return 0;
+}
+
+void mkfile() {
+   int fd;
+   char* n_dir;
+   char n_filename[255];
+   char temp[5];
+   printf("Name of File, Directory to change : ");
+   scanf("%s", n_filename);
+
+   fd = open(n_filename, O_RDWR | O_CREAT | O_EXCL, 0664);
+   if (fd == -1)
+      printf("That file already exists!");
+   close(fd);
+}
+int cpfile(char* fileName) {
+   char to[255];
+   printf("Name of File, Directory to change : ");
+   scanf("%s", to);
+
+   int fd1, fd2;
+   int read_size, write_size;
+   char buffer[100];
+   fd1 = open(fileName, O_RDONLY);
+   fd2 = open(to, O_RDWR | O_CREAT | O_EXCL, 0664);
+
+   read_size = read(fd1, buffer, 100);
+   write_size = write(fd2, buffer, read_size);
+   while (read_size == 100)
+   {
+      read_size = read(fd1, buffer, 100);
+      write_size = write(fd2, buffer, read_size);
+   }
+
+   return 0;
+}
+int file_list_print(char* dirname) // 파일 정보 출력 함수
+{
+   DIR* dir;
+   struct dirent* dirp;
+   dir = opendir(dirname);
+   chdir(dirname);
+   while ((dirp = readdir(dir)) != NULL) {
+      if (dirp->d_type == 4) {
+         if (strcmp(dirp->d_name, ".") == 0 || strcmp(dirp->d_name, "..") == 0) {
+            continue;
+         }
+         printf("%s %s\n", "FOLDER", dirp->d_name);
+
+      }
+      else {
+         printf("%s %s\n", "FILE", dirp->d_name);
+      }
+   }
+   closedir(dir);
+   return 0;
+
+}
+int selectmenu()
+{
+   int n;
+   printf("** << 수행할 작업을 선택하세요 >>\n");
+   printf("- 1. 홈 디렉토리로 이동\n");
+   printf("- 2. 작업 계속 진행\n");
+   printf("- 3. 프로그램 종료\n");
+   printf("- : ");
+   scanf("%d", &n);
+
+   return n;
+}
